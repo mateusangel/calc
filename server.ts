@@ -3,14 +3,10 @@ import Fastify from 'fastify';
 import middie from '@fastify/middie';
 import fastifyStatic from '@fastify/static';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
 import { PrismaClient } from '@prisma/client';
 import jwt from '@fastify/jwt';
 import bcrypt from 'bcryptjs';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const prisma = new PrismaClient();
 const PORT = 3000;
