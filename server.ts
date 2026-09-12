@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import Fastify from 'fastify';
 import middie from '@fastify/middie';
+import cors from '@fastify/cors';
 import fastifyStatic from '@fastify/static';
 import { existsSync } from 'fs';
 import path from 'path';
@@ -376,6 +377,10 @@ async function startServer() {
     secret: JWT_SECRET,
     sign: { expiresIn: process.env.JWT_EXPIRES_IN || '8h' },
   });
+  await fastify.register(cors, {
+    origin: true,
+    credentials: false,
+  });
 
   fastify.addHook('onRequest', async (request, reply) => {
     if (!request.url.startsWith('/api/') || request.url === '/api/health' || request.url.startsWith('/api/auth/')) return;
@@ -406,6 +411,11 @@ async function startServer() {
       nodeVersion: process.version,
     };
   });
+
+  fastify.get('/api/version', async () => ({
+    service: 'calcplace-backend',
+    build: 'auth-register-v2',
+  }));
 
   fastify.post('/api/auth/login', async (request, reply) => {
     const body = request.body as { email?: string; password?: string };
