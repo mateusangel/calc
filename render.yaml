@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: calcplace-backend
+    runtime: node
+    rootDir: .
+    buildCommand: npm run build && npm --prefix back exec prisma -- db push --schema prisma/schema.prisma --skip-generate
+    startCommand: node back/dist/server.cjs
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_EXPIRES_IN
+        value: 8h
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false

@@ -378,7 +378,16 @@ async function startServer() {
     sign: { expiresIn: process.env.JWT_EXPIRES_IN || '8h' },
   });
   await fastify.register(cors, {
-    origin: true,
+    origin: (origin, callback) => {
+      // The API is consumed by the Vercel SPA and by local development.
+      if (!origin || origin.endsWith('.vercel.app') || origin === 'http://localhost:5173' || origin === 'http://localhost:3000') {
+        callback(null, true);
+        return;
+      }
+      callback(null, false);
+    },
+    methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: false,
   });
 
