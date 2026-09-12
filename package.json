@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tsx server.ts",
     "db:push": "prisma db push --schema ./prisma/schema.prisma --skip-generate",
-    "build": "prisma generate --schema ./prisma/schema.prisma && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
+    "build": "prisma db push --schema ./prisma/schema.prisma --skip-generate && prisma generate --schema ./prisma/schema.prisma && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
     "start": "node dist/server.cjs",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit"
