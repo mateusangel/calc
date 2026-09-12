@@ -1,0 +1,142 @@
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+
+  users              User[]
+  products           Product[]
+  suppliers          Supplier[]
+  sales              Sale[]
+  inventoryMovements InventoryMovement[]
+  marketplaceConfigs MarketplaceConfig[]
+}
+
+model User {
+  id             String       @id @default(cuid())
+  name           String
+  email          String       @unique
+  passwordHash   String
+  role           String       @default("admin")
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+}
+
+model Product {
+  id                String   @id @default(cuid())
+  name              String
+  sku               String
+  ean               String?
+  category          String
+  brand             String?
+  description       String?
+  acquisitionCost   Float
+  packagingCost     Float    @default(0)
+  otherCosts        Float    @default(0)
+  targetMargin      Float    @default(20)
+  taxRate           Float    @default(6)
+  adCostPercent     Float    @default(0)
+  stock             Int      @default(0)
+  minStock          Int      @default(5)
+  supplierId        String?
+  imageUrl          String?
+  marketplacePrices String? // JSON serialized array of channel prices
+  channelStock      String? // JSON serialized breakdown of stock per channel
+  dimensions        String? // JSON serialized dimensions { lengthCm, widthCm, heightCm }
+  weightKg          Float?
+  notes             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  organizationId String
+  organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  supplier       Supplier?           @relation(fields: [supplierId], references: [id])
+  sales          Sale[]
+  movements      InventoryMovement[]
+
+  @@unique([organizationId, sku])
+}
+
+model Supplier {
+  id             String   @id @default(cuid())
+  name           String
+  cnpj           String?
+  contactName    String?
+  phone          String?
+  email          String?
+  leadTimeDays   Int      @default(7)
+  notes          String?
+  createdAt      DateTime @default(now())
+  organizationId String
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  products     Product[]
+}
+
+model Sale {
+  id               String       @id @default(cuid())
+  orderNumber      String
+  productId        String
+  product          Product      @relation(fields: [productId], references: [id])
+  marketplaceId    String
+  marketplaceName  String
+  quantity         Int          @default(1)
+  unitPrice        Float
+  totalAmount      Float
+  commissionAmount Float
+  fixedFeeAmount   Float
+  taxAmount        Float
+  shippingCost     Float        @default(0)
+  adCost           Float        @default(0)
+  packagingCost    Float        @default(0)
+  discountAmount   Float        @default(0)
+  costOfGoods      Float
+  netProfit        Float
+  marginPercent    Float
+  status           String       @default("concluida")
+  saleDate         DateTime     @default(now())
+  organizationId   String
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model InventoryMovement {
+  id             String       @id @default(cuid())
+  productId      String
+  product        Product      @relation(fields: [productId], references: [id])
+  type           String // "entrada", "saida", "ajuste"
+  quantity       Int
+  previousStock  Int
+  newStock       Int
+  reason         String?
+  createdAt      DateTime     @default(now())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model MarketplaceConfig {
+  id                    String
+  name                  String
+  commissionPercent     Float
+  fixedFee              Float
+  freeShippingThreshold Float
+  shippingSubsidy       Float        @default(0)
+  paymentFeePercent     Float        @default(0)
+  campaignFeePercent    Float        @default(0)
+  payoutDays            Int          @default(15)
+  color                 String?
+  organizationId        String
+  organization          Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@id([organizationId, id])
+}

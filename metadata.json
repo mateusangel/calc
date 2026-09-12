@@ -1,0 +1,6 @@
+{
+  "name": "CalcPlace - Precificação & Gestão para Marketplaces",
+  "description": "Sistema de precificação por canal, análise de margem de contribuição, gestão de fornecedores, controle de estoque centralizado e demonstrativo de lucro para marketplaces.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
