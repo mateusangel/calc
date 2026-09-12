@@ -464,6 +464,31 @@ async function startServer() {
     }
   });
 
+  fastify.delete('/api/account', async (request, reply) => {
+    try {
+      const organizationId = (request as any).user.organizationId;
+      const body = request.body as { confirmation?: string };
+      if (body.confirmation !== 'EXCLUIR') {
+        return reply.status(400).send({ ok: false, error: 'Digite EXCLUIR para confirmar a exclusão da conta.' });
+      }
+
+      await prisma.$transaction(async (tx) => {
+        await tx.sale.deleteMany({ where: { organizationId } });
+        await tx.inventoryMovement.deleteMany({ where: { organizationId } });
+        await tx.product.deleteMany({ where: { organizationId } });
+        await tx.supplier.deleteMany({ where: { organizationId } });
+        await tx.marketplaceConfig.deleteMany({ where: { organizationId } });
+        await tx.user.deleteMany({ where: { organizationId } });
+        await tx.organization.delete({ where: { id: organizationId } });
+      });
+
+      return { ok: true, message: 'Conta e todos os dados vinculados foram excluídos.' };
+    } catch (error: any) {
+      request.log.error(error, 'Falha ao excluir conta');
+      return reply.status(500).send({ ok: false, error: 'Não foi possível excluir a conta. Nenhum dado foi removido.' });
+    }
+  });
+
   // Products API
   fastify.get('/api/products', async (request, reply) => {
     try {
