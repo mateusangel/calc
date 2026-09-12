@@ -867,37 +867,60 @@ async function startServer() {
     try {
       const {
         acquisitionCost = 0,
+        supplierShipping = 0,
         packagingCost = 0,
         otherCosts = 0,
         commissionPercent = 14,
         fixedFee = 4,
+        paymentFeePercent = 0,
+        campaignFeePercent = 0,
+        sellerShippingCost = 0,
         taxPercent = 6,
         adCostPercent = 0,
+        discountPercent = 0,
         desiredMarginPercent = 20,
+        minDesiredProfit = 0,
       } = request.body as any;
 
-      const directCosts = acquisitionCost + packagingCost + otherCosts;
-      const totalDeductionRate = (commissionPercent + taxPercent + adCostPercent + desiredMarginPercent) / 100;
+      const toAmount = (value: unknown) => Number.isFinite(Number(value)) ? Math.max(0, Number(value)) : 0;
+      const costBasis = toAmount(acquisitionCost) + toAmount(supplierShipping) + toAmount(packagingCost) + toAmount(otherCosts);
+      const commissionRate = toAmount(commissionPercent);
+      const paymentRate = toAmount(paymentFeePercent);
+      const campaignRate = toAmount(campaignFeePercent);
+      const taxRate = toAmount(taxPercent);
+      const adRate = toAmount(adCostPercent);
+      const fixedFeeAmount = toAmount(fixedFee);
+      const sellerShippingAmount = toAmount(sellerShippingCost);
+      const discountRate = Math.min(100, toAmount(discountPercent));
+      const variableRate = (commissionRate + paymentRate + campaignRate + taxRate + adRate) / 100;
+      const totalFixedCosts = fixedFeeAmount + sellerShippingAmount;
+      const netRateRemaining = 1 - variableRate;
 
-      let sellingPrice = directCosts + fixedFee;
-      if (totalDeductionRate < 0.999) {
-        sellingPrice = (directCosts + fixedFee) / (1 - totalDeductionRate);
-      }
+      const breakEvenPrice = netRateRemaining > 0 ? (costBasis + totalFixedCosts) / netRateRemaining : (costBasis + totalFixedCosts) * 2;
+      const minSellingPrice = netRateRemaining > 0 ? (costBasis + totalFixedCosts + toAmount(minDesiredProfit)) / netRateRemaining : breakEvenPrice + toAmount(minDesiredProfit);
+      const marginDenominator = 1 - variableRate - (toAmount(desiredMarginPercent) / 100);
+      const recommendedPrice = marginDenominator > 0.05 ? (costBasis + totalFixedCosts) / marginDenominator : breakEvenPrice * 1.35;
+      const listingPrice = toAmount(request.body && (request.body as any).testSellingPrice) > 0 ? toAmount((request.body as any).testSellingPrice) : recommendedPrice;
+      const sellingPrice = listingPrice * (1 - discountRate / 100);
 
-      const commission = (sellingPrice * commissionPercent) / 100;
-      const taxes = (sellingPrice * taxPercent) / 100;
-      const ads = (sellingPrice * adCostPercent) / 100;
-      const netProfit = sellingPrice - directCosts - fixedFee - commission - taxes - ads;
+      const marketplaceFees = sellingPrice * ((commissionRate + paymentRate + campaignRate) / 100) + fixedFeeAmount;
+      const taxes = sellingPrice * (taxRate / 100);
+      const ads = sellingPrice * (adRate / 100);
+      const netProfit = sellingPrice - costBasis - marketplaceFees - taxes - ads - sellerShippingAmount;
       const netMargin = sellingPrice > 0 ? (netProfit / sellingPrice) * 100 : 0;
-      const markup = directCosts > 0 ? sellingPrice / directCosts : 0;
+      const markup = costBasis > 0 ? sellingPrice / costBasis : 0;
 
       return {
         ok: true,
         calculation: {
           sellingPrice: Number(sellingPrice.toFixed(2)),
-          directCosts: Number(directCosts.toFixed(2)),
-          fixedFee: Number(fixedFee.toFixed(2)),
-          commissionAmount: Number(commission.toFixed(2)),
+          breakEvenPrice: Number(breakEvenPrice.toFixed(2)),
+          minSellingPrice: Number(minSellingPrice.toFixed(2)),
+          recommendedSellingPrice: Number(recommendedPrice.toFixed(2)),
+          directCosts: Number(costBasis.toFixed(2)),
+          fixedFee: Number(fixedFeeAmount.toFixed(2)),
+          sellerShippingCost: Number(sellerShippingAmount.toFixed(2)),
+          commissionAmount: Number(marketplaceFees.toFixed(2)),
           taxesAmount: Number(taxes.toFixed(2)),
           adCostAmount: Number(ads.toFixed(2)),
           netProfit: Number(netProfit.toFixed(2)),
