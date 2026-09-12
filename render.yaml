@@ -3,7 +3,7 @@ services:
     name: calcplace-backend
     runtime: node
     rootDir: .
-    buildCommand: npm run build && npm --prefix back exec prisma -- db push --schema prisma/schema.prisma --skip-generate
+    buildCommand: npm run build
     startCommand: node back/dist/server.cjs
     healthCheckPath: /api/health
     envVars:
