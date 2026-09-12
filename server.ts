@@ -2,6 +2,7 @@ import 'dotenv/config';
 import Fastify from 'fastify';
 import middie from '@fastify/middie';
 import fastifyStatic from '@fastify/static';
+import { existsSync } from 'fs';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { PrismaClient } from '@prisma/client';
@@ -915,7 +916,8 @@ async function startServer() {
       vite.middlewares(req, res, next);
     });
   } else {
-    const distPath = path.join(process.cwd(), 'dist');
+    const rootDistPath = path.join(process.cwd(), 'front', 'dist');
+    const distPath = existsSync(rootDistPath) ? rootDistPath : path.join(process.cwd(), 'dist');
     await fastify.register(fastifyStatic, {
       root: distPath,
       prefix: '/',
