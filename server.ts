@@ -785,7 +785,14 @@ async function startServer() {
       const organizationId = (request as any).user.organizationId;
       const body = request.body as any;
       const qty = Math.abs(parseInt(body.quantity, 10) || 0);
-      const type = body.type as 'entrada' | 'saida' | 'ajuste';
+      const type = body.type as 'entrada' | 'saida' | 'devolucao' | 'perda' | 'ajuste' | 'transferencia' | 'reserva';
+      const validTypes = ['entrada', 'saida', 'devolucao', 'perda', 'ajuste', 'transferencia', 'reserva'];
+      if (!validTypes.includes(type)) {
+        return reply.status(400).send({ ok: false, error: 'Tipo de movimentação inválido.' });
+      }
+      if (type !== 'ajuste' && qty <= 0) {
+        return reply.status(400).send({ ok: false, error: 'A quantidade deve ser maior que zero.' });
+      }
 
       const result = await prisma.$transaction(async (tx) => {
         const product = await tx.product.findFirst({ where: { id: body.productId, organizationId } });
@@ -794,9 +801,10 @@ async function startServer() {
         }
 
         let newStock = product.stock;
-        if (type === 'entrada') newStock += qty;
-        else if (type === 'saida') newStock = Math.max(0, newStock - qty);
-        else if (type === 'ajuste') newStock = qty;
+        if (type === 'entrada' || type === 'devolucao') newStock += qty;
+        else if (type === 'saida' || type === 'perda' || type === 'reserva') newStock = Math.max(0, newStock - qty);
+        else if (type === 'ajuste') newStock = Math.max(0, parseInt(body.newStock, 10) || 0);
+        else if (type === 'transferencia') newStock = product.stock;
 
         await tx.product.update({
           where: { id: body.productId },
@@ -808,7 +816,7 @@ async function startServer() {
             organizationId,
             productId: body.productId,
             type,
-            quantity: qty,
+            quantity: type === 'ajuste' ? newStock - product.stock : (type === 'saida' || type === 'perda' || type === 'reserva' ? -qty : qty),
             previousStock: product.stock,
             newStock,
             reason: body.reason || 'Movimentação manual de estoque',
@@ -832,6 +840,60 @@ async function startServer() {
       return { ok: true, data: marketplaces };
     } catch (error: any) {
       reply.status(500).send({ ok: false, error: error.message });
+    }
+  });
+
+  fastify.get('/api/account/settings', async (request, reply) => {
+    try {
+      const organizationId = (request as any).user.organizationId;
+      const organization = await prisma.organization.findUnique({
+        where: { id: organizationId },
+        select: {
+          taxRegime: true,
+          defaultTaxPercent: true,
+          defaultPackagingCost: true,
+          targetMinMargin: true,
+          targetHealthyMargin: true,
+        },
+      });
+      if (!organization) return reply.status(404).send({ ok: false, error: 'Conta não encontrada.' });
+      return { ok: true, data: organization };
+    } catch (error: any) {
+      return reply.status(500).send({ ok: false, error: error.message });
+    }
+  });
+
+  fastify.put('/api/account/settings', async (request, reply) => {
+    try {
+      const organizationId = (request as any).user.organizationId;
+      const body = request.body as any;
+      const toPercent = (value: unknown, fallback: number) => {
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? Math.max(0, parsed) : fallback;
+      };
+      const taxRegime = ['mei', 'simples', 'lucro_presumido'].includes(body.taxRegime)
+        ? body.taxRegime
+        : 'simples';
+      const settings = await prisma.organization.update({
+        where: { id: organizationId },
+        data: {
+          taxRegime,
+          defaultTaxPercent: toPercent(body.defaultTaxPercent, 6),
+          defaultPackagingCost: toPercent(body.defaultPackagingCost, 1.5),
+          targetMinMargin: toPercent(body.targetMinMargin, 15),
+          targetHealthyMargin: toPercent(body.targetHealthyMargin, 25),
+        },
+        select: {
+          taxRegime: true,
+          defaultTaxPercent: true,
+          defaultPackagingCost: true,
+          targetMinMargin: true,
+          targetHealthyMargin: true,
+        },
+      });
+      return { ok: true, data: settings };
+    } catch (error: any) {
+      return reply.status(400).send({ ok: false, error: error.message });
     }
   });
 

@@ -13,6 +13,11 @@ model Organization {
   name      String
   slug      String   @unique
   createdAt DateTime @default(now())
+  taxRegime             String @default("simples")
+  defaultTaxPercent     Float  @default(6)
+  defaultPackagingCost  Float  @default(1.5)
+  targetMinMargin       Float  @default(15)
+  targetHealthyMargin   Float  @default(25)
 
   users              User[]
   products           Product[]
